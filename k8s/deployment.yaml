@@ -1,0 +1,95 @@
+# -------------------------------
+# Namespace (Auto-create if missing)
+# -------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "<NAMESPACE>"
+
+— #(---three dashes) 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: <APP_NAME>-deployment
+  namespace: "<NAMESPACE>"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: <APP_NAME>
+  template:
+    metadata:
+      labels:
+        app: <APP_NAME>
+    spec:
+      imagePullSecrets:
+        - name: nexus-secret   # ⚠️ DO NOT CHANGE 
+
+      containers:
+        - name: <APP_NAME>
+          image: 127.0.0.1:30085/<PROJECT_NAMESPACE>/<APP_NAME>:<TAG>
+
+          ports:
+            - containerPort: <APP_PORT>
+
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_NAME
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: DB_PORT
+            - name: DEBUG
+              value: "0"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: <APP_PORT>
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: <APP_PORT>
+            initialDelaySeconds: 30
+            periodSeconds: 30
+
+          volumeMounts:
+            - name: app-storage
+              mountPath: /app/data
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+
+      volumes:
+        - name: app-storage
+          persistentVolumeClaim:
+            claimName: app-pvc
+
+
